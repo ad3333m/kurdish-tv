@@ -64,6 +64,7 @@ class MainActivity : Activity() {
     private var visible = true
     private var sniffer: WebView? = null   // a site being watched for its player's stream
     private var snifferShown = false
+    private var lastRepeat = 0L
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -354,6 +355,10 @@ class MainActivity : Activity() {
             return true
         }
         val name = KEYS[event.keyCode] ?: return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0) {   // a held key: let each move animate
+            if (event.eventTime - lastRepeat < KEY_REPEAT_MS) return true
+            lastRepeat = event.eventTime
+        }
         if (event.action == KeyEvent.ACTION_DOWN && !(name == "back" && event.repeatCount > 0)) {
             web.evaluateJavascript("window.app?app.key('$name'):false") { handled ->
                 if (name == "back" && handled != "true") finish()
@@ -388,6 +393,7 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        const val KEY_REPEAT_MS = 110L
         const val AGENT = "Mozilla/5.0 (Linux; Android 12; BRAVIA 4K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
         val STREAM = Regex("""https?:(?:\\?/){2}[^"'\s<>()]+?\.m3u8[^"'\s<>()]*""")
         // In every frame of a site being watched: start its player muted, since many only ask for the stream then.

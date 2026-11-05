@@ -82,7 +82,8 @@
   const isOff = c => off[c.id] > Date.now() - OFF_MS;
   const ini = n => n.replace(/[^\p{L}\p{N} ]/gu, '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const logoUrl = c => LOGOS[c.id] || (/imgur\.com/.test(c.logo || '') ? '' : c.logo || '');   // imgur blocks the UK
-  const logo = c => /^(https?:\/\/|logos\/)/.test(logoUrl(c)) ? `<img src="${esc(logoUrl(c))}" alt="">` : '';
+  const logo = c => /^(https?:\/\/|logos\/)/.test(logoUrl(c)) ? `<img src="${esc(logoUrl(c))}" alt="" decoding="async">` : '';
+  const enter = el => { el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); };   // replay it
   const noImgOnError = root => root.querySelectorAll('img').forEach(im => {
     im.onerror = () => { const card = im.closest('.card'); if (card) card.classList.add('noimg'); else im.remove(); };
   });
@@ -123,7 +124,7 @@
       const deco = l === 'ku' ? `<svg class="deco" viewBox="-50 -50 100 100">${SUN}</svg>`
                               : `<div class="deco txt">${l === 'ar' ? 'ع' : 'EN'}</div>`;
       const minis = list.filter(c => LOGOS[c.id]).slice(0, 4).map(c => `<span>${logo(c)}</span>`).join('');
-      return `<div class="tile lang ${l}">${deco}<h1>${L.name}</h1><div class="nat">${L.native}</div>` +
+      return `<div class="tile lang ${l}"><div class="clip">${deco}</div><h1>${L.name}</h1><div class="nat">${L.native}</div>` +
         `<div class="cnt">${list.length} channels</div><div class="minis">${minis}</div></div>`;
     };
     const topicTile = t => `<div class="tile topic" style="background:linear-gradient(160deg, ${t.tint}d9, #14161d 88%)">` +
@@ -207,7 +208,7 @@
     $('#grid').innerHTML = `<div class="gtitle"><h1>${esc(title)}</h1><span>${esc(sub)}${sub ? ' · ' : ''}${plural(catFlat.length)}</span>` +
       `<span class="back">‹ Categories</span></div><div id="gview"><div id="gtrack">${html}</div></div>`;
     noImgOnError($('#grid'));
-    if (!keep) { gl = 0; gc = 0; gScroll = 0; }
+    if (!keep) { gl = 0; gc = 0; gScroll = 0; enter($('#grid')); }
     paintGrid();
   }
 
@@ -229,7 +230,7 @@
     else if (k === 'right') { if (gc < len - 1) gc++; else if (gl < lines.length - 1) { gl++; gc = 0; } }
     else if (k === 'up') { if (gl > 0) gl--; }
     else if (k === 'down') { if (gl < lines.length - 1) gl++; }
-    else if (k === 'back') { if (removing) setRemoving(false); else renderHome(); return true; }
+    else if (k === 'back') { if (removing) setRemoving(false); else { renderHome(); enter($('#home')); } return true; }
     else if (k === 'ok') {
       const c = lines[gl].items[gc];
       if (c.act === 'add') { setRemoving(false); N.add(); }

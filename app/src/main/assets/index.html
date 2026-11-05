@@ -6,15 +6,26 @@
 <title>Kurdish TV</title>
 <style>
   /* Laid out for a 1920x1080 TV: 1rem is 10px at that width, whatever the WebView's real size. */
-  :root { --bg:#07080c; --text:#f3f4f7; --muted:#9097a6; --accent:#f6b819; --red:#e3262b; }
+  :root { --bg:#07080c; --text:#f3f4f7; --muted:#9097a6; --accent:#f6b819; --red:#e3262b; --ease:cubic-bezier(.2,.8,.2,1); }
   * { box-sizing:border-box; margin:0; padding:0; }
   html { font-size:calc(100vw / 192); background:var(--bg); }
   body { width:100vw; height:100vh; overflow:hidden; color:var(--text);
-    font-family:Roboto, "Segoe UI", system-ui, sans-serif;
+    font-family:Roboto, "Segoe UI", system-ui, sans-serif; }
+  #guide { position:absolute; inset:0; transition:opacity .3s var(--ease), visibility .3s;
     background:radial-gradient(90rem 60rem at 0% 0%, rgba(227,38,43,.13), transparent 70%),
                radial-gradient(90rem 60rem at 100% 100%, rgba(33,160,80,.12), transparent 70%), var(--bg); }
-  html.watching, html.watching body { background:transparent; }
-  html.watching #guide { display:none; }
+  html.watching { background:transparent; }
+  html.watching #guide { opacity:0; visibility:hidden; }
+
+  /* Only transform and opacity animate, because the TV's GPU does those without repainting. The focus ring's shadow
+     is drawn once, on a pseudo-element that fades in. */
+  .enter { animation:enter .32s var(--ease); }
+  @keyframes enter { from { opacity:0; transform:translateY(1.2rem) scale(.99); } }
+  .tile::after, .card::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; opacity:0;
+    transition:opacity .2s var(--ease); }
+  .tile::after { box-shadow:0 0 0 .5rem var(--accent), 0 2.4rem 6rem rgba(0,0,0,.6); }
+  .card::after { box-shadow:0 0 0 .45rem var(--accent), 0 2rem 5rem rgba(0,0,0,.65); }
+  .tile.focus::after, .card.focus::after { opacity:1; }
   [hidden] { display:none !important; }
 
   header { position:absolute; left:8rem; right:8rem; top:4.6rem; height:7rem; display:flex; align-items:center; gap:3rem; }
@@ -27,8 +38,9 @@
   #home { position:absolute; left:8rem; right:8rem; top:15rem; bottom:0; }
   .langs { display:grid; grid-template-columns:repeat(3, 1fr); gap:2.4rem; height:34rem; }
   .topics { display:grid; grid-template-columns:repeat(7, 1fr); gap:2.4rem; height:19rem; margin-top:2.6rem; }
-  .tile { position:relative; border-radius:2.4rem; overflow:hidden; padding:3.2rem; transition:transform .16s, box-shadow .16s; }
-  .tile.focus { transform:scale(1.04); box-shadow:0 0 0 .5rem var(--accent), 0 2.4rem 6rem rgba(0,0,0,.6); z-index:2; }
+  .tile { position:relative; border-radius:2.4rem; padding:3.2rem; transition:transform .24s var(--ease); will-change:transform; }
+  .tile.focus { transform:scale(1.04); z-index:2; }
+  .clip { position:absolute; inset:0; overflow:hidden; border-radius:inherit; }
   .lang h1 { position:relative; font-size:6.6rem; font-weight:800; letter-spacing:-.01em; }
   .lang .nat { position:relative; font-size:3.6rem; font-weight:600; opacity:.85; margin-top:.2rem; min-height:4.6rem; }
   .cnt { position:relative; font-size:2.1rem; color:rgba(255,255,255,.8); margin-top:.8rem; }
@@ -61,15 +73,15 @@
     border-radius:99rem; cursor:pointer; }
   .tile, .card, .item { cursor:pointer; }
   #gview { position:absolute; top:9rem; left:-2rem; right:-2rem; bottom:0; overflow:hidden; padding:1.2rem 2rem 0; }
-  #gtrack { transition:transform .25s cubic-bezier(.2,.7,.2,1); }
+  #gtrack { transition:transform .34s var(--ease); will-change:transform; }
   #gtrack h2 { height:5.4rem; padding-top:.4rem; }
   #gtrack h2 span, .recent h2 span { color:var(--muted); font-weight:400; font-size:2rem; margin-left:1.2rem; }
   .gline { display:grid; grid-template-columns:repeat(6, 1fr); gap:2.4rem; height:19.6rem; }
 
   .card { height:17rem; border-radius:2rem; position:relative; display:grid; place-items:center;
-    background:linear-gradient(160deg, #262a35, #171a22); border:.1rem solid rgba(255,255,255,.07); transition:transform .16s, box-shadow .16s; }
+    background:linear-gradient(160deg, #262a35, #171a22); border:.1rem solid rgba(255,255,255,.07); transition:transform .24s var(--ease), opacity .2s var(--ease); }
   .card .lg { height:58%; width:76%; display:grid; place-items:center; margin-bottom:3.2rem; }
-  .card img { max-width:100%; max-height:9.4rem; object-fit:contain; filter:drop-shadow(0 .3rem .8rem rgba(0,0,0,.45)); }
+  .card img { max-width:100%; max-height:9.4rem; object-fit:contain; }
   .card .ini { display:none; font-size:4rem; font-weight:800; color:#e6e8ee; text-align:center; }
   .card.noimg .ini { display:block; }
   .card.noimg img { display:none; }
@@ -79,13 +91,14 @@
   .card.app { background:linear-gradient(160deg, #3a2e10, #1a160c); border-color:rgba(246,184,25,.45); }
   .card.app .ini { font-size:3.2rem; color:var(--accent); }
   .card.off { opacity:.45; }
-  .card.focus { transform:scale(1.08); box-shadow:0 0 0 .45rem var(--accent), 0 2rem 5rem rgba(0,0,0,.65); z-index:2; opacity:1; }
-  .removing .card.focus:not(.app) { box-shadow:0 0 0 .45rem var(--red), 0 2rem 5rem rgba(0,0,0,.65); }
+  .card.focus { transform:scale(1.08); z-index:2; opacity:1; }
+  .removing .card:not(.app)::after { box-shadow:0 0 0 .45rem var(--red), 0 2rem 5rem rgba(0,0,0,.65); }
 
   /* watching */
   #osd { position:absolute; left:0; right:0; bottom:0; padding:12rem 8rem 6rem; display:flex; align-items:center; gap:3rem;
-    background:linear-gradient(transparent, rgba(0,0,0,.88)); opacity:0; transition:opacity .3s; }
-  #osd.show { opacity:1; }
+    background:linear-gradient(transparent, rgba(0,0,0,.88)); opacity:0; transform:translateY(2rem);
+    transition:opacity .3s var(--ease), transform .3s var(--ease); }
+  #osd.show { opacity:1; transform:none; }
   #osd .n { font-size:5.2rem; font-weight:800; color:var(--accent); min-width:10rem; }
   #osd .plate { width:22rem; height:12.4rem; border-radius:1.6rem; background:rgba(255,255,255,.08); display:grid; place-items:center; flex:none; }
   #osd .plate img { max-width:17rem; max-height:8rem; object-fit:contain; }
@@ -97,7 +110,7 @@
 
   #status { position:absolute; inset:0; display:none; place-items:center; text-align:center; }
   #status.show { display:grid; }
-  #status .box { background:rgba(8,9,12,.75); padding:4rem 6rem; border-radius:2.4rem; }
+  #status .box { background:rgba(8,9,12,.75); padding:4rem 6rem; border-radius:2.4rem; animation:enter .25s var(--ease); }
   .spin { width:7rem; height:7rem; border-radius:50%; border:.7rem solid rgba(255,255,255,.18); border-top-color:var(--accent);
     margin:0 auto 2.4rem; animation:spin .9s linear infinite; }
   #status.err .spin { display:none; }
@@ -106,11 +119,11 @@
   @keyframes spin { to { transform:rotate(360deg); } }
 
   #list { position:absolute; top:0; bottom:0; left:0; width:62rem; padding:6rem 0 0 6rem; overflow:hidden;
-    background:linear-gradient(90deg, rgba(6,7,10,.96) 75%, rgba(6,7,10,0)); transform:translateX(-64rem); transition:transform .25s; }
+    background:linear-gradient(90deg, rgba(6,7,10,.96) 75%, rgba(6,7,10,0)); transform:translateX(-64rem); transition:transform .3s var(--ease); will-change:transform; }
   #list.show { transform:none; }
   #list h4 { font-size:2.8rem; font-weight:800; color:var(--accent); margin-bottom:2.4rem; }
-  #items { transition:transform .2s; }
-  .item { display:flex; align-items:center; gap:2rem; height:8.4rem; margin:0 8rem .6rem 0; padding:0 2rem; border-radius:1.4rem; }
+  #items { transition:transform .28s var(--ease); will-change:transform; }
+  .item { display:flex; align-items:center; gap:2rem; height:8.4rem; margin:0 8rem .6rem 0; padding:0 2rem; border-radius:1.4rem; transition:background-color .18s, color .18s; }
   .item .n { width:5.6rem; font-size:2rem; font-weight:700; color:var(--muted); }
   .item .lg { width:10rem; height:5.6rem; display:grid; place-items:center; flex:none; }
   .item img { max-width:10rem; max-height:5.6rem; object-fit:contain; }
@@ -119,9 +132,9 @@
   .item.focus { background:var(--text); color:#0b0c10; }
   .item.focus .n { color:#4a4f5a; }
 
-  #toast { position:absolute; left:50%; bottom:6rem; transform:translateX(-50%); background:rgba(20,22,28,.95); padding:2rem 4rem;
-    border-radius:99rem; font-size:2.2rem; opacity:0; transition:opacity .3s; }
-  #toast.show { opacity:1; }
+  #toast { position:absolute; left:50%; bottom:6rem; transform:translate(-50%, 1.5rem); background:rgba(20,22,28,.95); padding:2rem 4rem;
+    border-radius:99rem; font-size:2.2rem; opacity:0; transition:opacity .3s var(--ease), transform .3s var(--ease); }
+  #toast.show { opacity:1; transform:translate(-50%, 0); }
 </style>
 </head>
 <body>
