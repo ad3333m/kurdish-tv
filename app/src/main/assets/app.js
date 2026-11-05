@@ -205,7 +205,7 @@
     $('#home').hidden = true;
     $('#grid').hidden = false;
     $('#crumb').textContent = '';
-    $('#grid').innerHTML = `<div class="gtitle"><h1>${esc(title)}</h1><span>${esc(sub)}${sub ? ' · ' : ''}${plural(catFlat.length)}</span>` +
+    $('#grid').innerHTML = `<div class="gtitle"><h1>${esc(title)}</h1><span><bdi>${esc(sub)}</bdi>${sub ? ' · ' : ''}${plural(catFlat.length)}</span>` +
       `<span class="back">‹ Categories</span></div><div id="gview"><div id="gtrack">${html}</div></div>`;
     noImgOnError($('#grid'));
     if (!keep) { gl = 0; gc = 0; gScroll = 0; enter($('#grid')); }
