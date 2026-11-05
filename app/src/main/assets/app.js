@@ -143,7 +143,7 @@
     else if (k === 'up' || k === 'down') {
       const to = hr + (k === 'up' ? -1 : 1);
       if (to < 0 || to >= homeRows.length) return true;
-      hc = Math.min(homeRows[to].length - 1, Math.floor((hc + 0.5) * homeRows[to].length / row.length));
+      hc = Math.min(homeRows[to].length - 1, Math.floor(hc * homeRows[to].length / row.length));
       hr = to;
     } else if (k === 'ok') {
       const it = row[hc];
