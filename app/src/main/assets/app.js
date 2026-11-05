@@ -116,7 +116,7 @@
       const L = LANGS[l], list = channels.filter(c => c.lang === l && !c.app);
       const deco = l === 'ku' ? `<svg class="deco" viewBox="-50 -50 100 100">${SUN}</svg>`
                               : `<div class="deco txt">${l === 'ar' ? 'ع' : 'EN'}</div>`;
-      const minis = list.filter(c => LOGOS[c.id]).slice(0, 5).map(c => `<span>${logo(c)}</span>`).join('');
+      const minis = list.filter(c => LOGOS[c.id]).slice(0, 4).map(c => `<span>${logo(c)}</span>`).join('');
       return `<div class="tile lang ${l}">${deco}<h1>${L.name}</h1><div class="nat">${L.native}</div>` +
         `<div class="cnt">${list.length} channels</div><div class="minis">${minis}</div></div>`;
     };
@@ -194,7 +194,7 @@
     $('#grid').hidden = false;
     $('#crumb').textContent = '';
     $('#grid').innerHTML = `<div class="gtitle"><h1>${esc(title)}</h1><span>${esc(sub)}${sub ? ' · ' : ''}${catFlat.length} channels</span>` +
-      `<span class="back">BACK for categories</span></div><div id="gview"><div id="gtrack">${html}</div></div>`;
+      `<span class="back">‹ Categories</span></div><div id="gview"><div id="gtrack">${html}</div></div>`;
     noImgOnError($('#grid'));
     if (!keep) { gl = 0; gc = 0; gScroll = 0; }
     paintGrid();
@@ -406,6 +406,34 @@
       if (!watching && screen === 'home') renderHome();
     })
     .catch(() => { /* offline or blocked: the built-in list is enough */ });
+
+  // -- a click (a mouse, or a remote with a pointer) is a move of the focus there, then OK ----------------
+
+  document.addEventListener('click', e => {
+    if (watching) {
+      const item = e.target.closest('.item');
+      if (listOpen && item) { listI = [...item.parentNode.children].indexOf(item); watchKey('ok'); }
+      else app.key('back');
+      return;
+    }
+    if (e.target.closest('.back')) { app.key('back'); return; }
+    const el = e.target.closest('.tile, .card');
+    if (!el) return;
+    if (screen === 'home') {
+      [$('#home .langs'), $('#home .topics'), $('#home .recent .strip')].forEach((row, r) => {
+        const c = row ? [...row.children].indexOf(el) : -1;
+        if (c >= 0) { hr = r; hc = c; }
+      });
+      paintHome();
+    } else {
+      document.querySelectorAll('#gtrack .gline').forEach((row, r) => {
+        const c = [...row.children].indexOf(el);
+        if (c >= 0) { gl = r; gc = c; }
+      });
+      paintGrid();
+    }
+    app.key('ok');
+  });
 
   // -- in a desktop browser (no Activity): arrow keys, and a pretend player ---------------------------------
 
