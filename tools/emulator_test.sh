@@ -27,5 +27,14 @@ key KEYCODE_DPAD_CENTER;                           shot 11-mbc1 25
 key KEYCODE_BACK; key KEYCODE_BACK
 key KEYCODE_DPAD_LEFT; key KEYCODE_DPAD_LEFT; key KEYCODE_DPAD_CENTER
                                                    shot 12-sports 4
+# Add tile (7th) -> Add channel -> a site whose JavaScript player loads an HLS stream -> name it -> it plays
+key KEYCODE_BACK
+for i in 1 2 3 4 5 6; do key KEYCODE_DPAD_RIGHT; done; shot 13-add-tile 1
+key KEYCODE_DPAD_CENTER;                           shot 14-my-channels 3
+key KEYCODE_DPAD_CENTER;                           shot 15-add-dialog 3
+adb shell input text "https://hlsjs.video-dev.org/demo/"
+adb shell input keyevent KEYCODE_ENTER;            shot 16-found-player 30
+adb shell input keyevent KEYCODE_ENTER;            shot 17-added-playing 25
+key KEYCODE_BACK;                                  shot 18-my-channels-added 3
 adb logcat -d | grep -iE "kurdishtv|ExoPlayer|MediaCodec|AndroidRuntime|FATAL" | grep -v mediashell | tail -400 > "$OUT/logcat.txt"
 ls -la "$OUT"

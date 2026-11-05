@@ -19,6 +19,9 @@ beIN SPORTS XTRA). Remote only.
   its page is read first).
 - At start the page fetches [iptv-org](https://github.com/iptv-org/iptv)'s Kurdish playlist, which adds fresh links
   and any new Kurdish channel.
+- The Add tile takes a channel from a website. Type the site, reach its player with the remote, and the app saves the
+  .m3u8 the player asks for (HLS only). If that link expires, the app reloads the site out of sight for a fresh one.
+  Added channels stay on the TV (`mine` in the page's localStorage).
 - Shahid and beIN (TOD) tiles open those apps on the TV, with your own account. beIN's paid channels are not in the list.
 
 `tools/make_icons.py` draws the icons and banner. CI (`.github/workflows/apk.yml`) builds the debug-signed APK into the

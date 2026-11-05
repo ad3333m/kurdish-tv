@@ -26,7 +26,7 @@
   /* home: the categories you go into */
   #home { position:absolute; left:8rem; right:8rem; top:15rem; bottom:0; }
   .langs { display:grid; grid-template-columns:repeat(3, 1fr); gap:2.4rem; height:34rem; }
-  .topics { display:grid; grid-template-columns:repeat(6, 1fr); gap:2.4rem; height:19rem; margin-top:2.6rem; }
+  .topics { display:grid; grid-template-columns:repeat(7, 1fr); gap:2.4rem; height:19rem; margin-top:2.6rem; }
   .tile { position:relative; border-radius:2.4rem; overflow:hidden; padding:3.2rem; transition:transform .16s, box-shadow .16s; }
   .tile.focus { transform:scale(1.04); box-shadow:0 0 0 .5rem var(--accent), 0 2.4rem 6rem rgba(0,0,0,.6); z-index:2; }
   .lang h1 { position:relative; font-size:6.6rem; font-weight:800; letter-spacing:-.01em; }
@@ -80,6 +80,7 @@
   .card.app .ini { font-size:3.2rem; color:var(--accent); }
   .card.off { opacity:.45; }
   .card.focus { transform:scale(1.08); box-shadow:0 0 0 .45rem var(--accent), 0 2rem 5rem rgba(0,0,0,.65); z-index:2; opacity:1; }
+  .removing .card.focus:not(.app) { box-shadow:0 0 0 .45rem var(--red), 0 2rem 5rem rgba(0,0,0,.65); }
 
   /* watching */
   #osd { position:absolute; left:0; right:0; bottom:0; padding:12rem 8rem 6rem; display:flex; align-items:center; gap:3rem;

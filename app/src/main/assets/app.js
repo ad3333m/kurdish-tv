@@ -1,19 +1,22 @@
 // Kurdish TV's screens. Home: the categories (Kurdish, Arabic, English, then Sports, Movies, MBC, Shahid, News, Kids)
-// and recently watched channels. A category: its channels in a grid, in sections. Watching: the banner, the channel
+// (plus Add: channels taken from a website's player, kept on this TV) and recently watched channels. A category: its channels in a grid, in sections. Watching: the banner, the channel
 // list and the tuning/off-air notes over the picture, which is native (MainActivity's ExoPlayer under this
 // transparent page). Keys come from the Activity as app.key('up'|'down'|'left'|'right'|'ok'|'back'|'chnext'|
 // 'chprev'|'menu'|'info'); it returns false only when Back should close the app.
 (() => {
   'use strict';
   const LANGS = { ku: { name: 'Kurdish', native: 'کوردی', base: 1 }, ar: { name: 'Arabic', native: 'عربي', base: 101 },
-                  en: { name: 'English', native: '', base: 201 } };
-  const ORDER = ['ku', 'ar', 'en'];
+                  en: { name: 'English', native: '', base: 201 }, my: { name: 'My channels', native: '', base: 301 } };
+  const ORDER = ['ku', 'ar', 'en'];           // the language tiles
+  const ACTS = [{ id: '_add', act: 'add', app: true, name: 'Add channel', sym: '+' },
+                { id: '_rm', act: 'rm', app: true, name: 'Remove channel', sym: '−' }];
   const ICON = {
     ball: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.8 2.8-1.4 4.5H9.6l-1.4-4.5zM12 3v4.5M15.8 10.3l4.4-1.6M14.4 14.8l2.7 3.9M9.6 14.8l-2.7 3.9M8.2 10.3L3.8 8.7"/>',
     film: '<rect x="3" y="9" width="18" height="11" rx="2"/><path d="M3 9l1.2-4.2 16.4 0L21 9M8 4.8l-1 4.2M13 4.8l-1 4.2M18 4.8l-1 4.2"/>',
     tv: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
     play: '<circle cx="12" cy="12" r="9"/><path d="M10 8.3v7.4l6-3.7z"/>',
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.3 3.2 14.7 0 18M12 3c-3.2 3.3-3.2 14.7 0 18"/>',
+    plus: '<path d="M12 4.5v15M4.5 12h15"/>',
     star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>',
   };
   const TOPICS = [
@@ -23,6 +26,7 @@
     { id: 'Shahid', icon: 'play', tint: '#0f8f80', pick: c => c.cat === 'Shahid' },
     { id: 'News', icon: 'globe', tint: '#b8291f', pick: c => c.cat === 'News' },
     { id: 'Kids', icon: 'star', tint: '#d8841c', pick: c => c.cat === 'Kids' },
+    { id: 'Add', title: 'My channels', mine: true, icon: 'plus', tint: '#a5820f', pick: c => c.lang === 'my' },
   ];
   const OFF_MS = 6 * 3600e3;                 // a channel that failed is dimmed this long
   const COLS = 6, H2_H = 5.4, LINE_H = 19.6, CARD_H = 17, VIEW_H = 84, ITEM_H = 9;   // grid geometry (rem)
@@ -36,13 +40,14 @@
   };
   const N = window.Native || desk();
   const LOGOS = window.LOGOS || {};
-  const channels = (window.CHANNELS || []).slice();
+  const mine = store.get('mine', []);        // channels added from a website, kept on this TV
+  const channels = (window.CHANNELS || []).concat(mine);
   let recent = store.get('recent', []);
   const off = store.get('off', {});
 
   let screen = 'home', hr = 0, hc = 0, homeRows = [];
   let cat = null, lines = [], tops = [], gl = 0, gc = 0, gScroll = 0, catFlat = [];
-  let watching = null, zapList = [], listOpen = false, listI = 0, osdTimer = 0, statusTimer = 0, toastTimer = 0;
+  let removing = false, watching = null, zapList = [], listOpen = false, listI = 0, osdTimer = 0, statusTimer = 0, toastTimer = 0;
 
   const SUN = (() => {
     let s = '<circle r="21" fill="#f6b819"/>';
@@ -67,12 +72,13 @@
     return { cats, by };
   }
   function number() {
-    for (const l of ORDER) {
+    for (const l of Object.keys(LANGS)) {
       const { cats, by } = ordered(l);
       let n = LANGS[l].base;
       for (const k of cats) for (const c of by[k]) if (!c.app) c.num = n++;
     }
   }
+  const plural = n => `${n} channel${n === 1 ? '' : 's'}`;
   const isOff = c => off[c.id] > Date.now() - OFF_MS;
   const ini = n => n.replace(/[^\p{L}\p{N} ]/gu, '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const logoUrl = c => LOGOS[c.id] || (/imgur\.com/.test(c.logo || '') ? '' : c.logo || '');   // imgur blocks the UK
@@ -86,8 +92,8 @@
     if (c.app) cls.push('app');
     if (!logo(c)) cls.push('noimg');
     if (isOff(c)) cls.push('off');
-    const label = c.app ? esc(c.name.replace(/ app$/, '')) : esc(ini(c.name));
-    return `<div class="${cls.join(' ')}"><span class="num">${c.app ? 'APP' : c.num}</span>` +
+    const label = c.act ? c.sym : c.app ? esc(c.name.replace(/ app$/, '')) : esc(ini(c.name));
+    return `<div class="${cls.join(' ')}"><span class="num">${c.act ? '' : c.app ? 'APP' : c.num}</span>` +
       `<div class="lg">${logo(c)}<span class="ini">${label}</span></div><div class="name">${esc(c.name)}</div></div>`;
   }
 
@@ -95,7 +101,7 @@
 
   function topicItems(t) {
     const out = [], apps = {};
-    for (const l of ORDER) for (const c of channels) {
+    for (const l of Object.keys(LANGS)) for (const c of channels) {
       if (c.lang !== l || !t.pick(c)) continue;
       if (c.app) { if (apps[c.id]) continue; apps[c.id] = 1; }     // beIN's app tile is in two languages: once
       out.push(c);
@@ -121,7 +127,7 @@
         `<div class="cnt">${list.length} channels</div><div class="minis">${minis}</div></div>`;
     };
     const topicTile = t => `<div class="tile topic" style="background:linear-gradient(160deg, ${t.tint}d9, #14161d 88%)">` +
-      `<svg viewBox="0 0 24 24">${ICON[t.icon]}</svg><h3>${t.id}</h3><div class="cnt">${topicItems(t).filter(c => !c.app).length} channels</div></div>`;
+      `<svg viewBox="0 0 24 24">${ICON[t.icon]}</svg><h3>${t.id}</h3><div class="cnt">${plural(topicItems(t).filter(c => !c.app).length)}</div></div>`;
     $('#home').innerHTML = `<div class="langs">${ORDER.map(langTile).join('')}</div>` +
       `<div class="topics">${TOPICS.map(topicTile).join('')}</div>` +
       (rec.length ? `<div class="recent"><h2>Recently watched</h2><div class="strip">${rec.map(card).join('')}</div></div>` : '');
@@ -159,7 +165,12 @@
 
   // -- a category --------------------------------------------------------------------------------------------
 
+  const catTitle = it => it.lang ? LANGS[it.lang].name : it.topic.title || it.topic.id;
+
   function sections(it) {
+    if (it.topic && it.topic.mine) {
+      return [{ title: '', items: mine.length ? ACTS : ACTS.slice(0, 1) }].concat(mine.length ? [{ title: 'Added', items: mine }] : []);
+    }
     if (it.lang) {
       const { cats, by } = ordered(it.lang);
       return cats.map(k => ({ title: k, items: by[k] }));
@@ -188,12 +199,12 @@
       y += LINE_H;
       html += `<div class="gline">${l.items.map(card).join('')}</div>`;
     });
-    const title = it.lang ? LANGS[it.lang].name : it.topic.id;
+    const title = catTitle(it);
     const sub = it.lang ? LANGS[it.lang].native : '';
     $('#home').hidden = true;
     $('#grid').hidden = false;
     $('#crumb').textContent = '';
-    $('#grid').innerHTML = `<div class="gtitle"><h1>${esc(title)}</h1><span>${esc(sub)}${sub ? ' · ' : ''}${catFlat.length} channels</span>` +
+    $('#grid').innerHTML = `<div class="gtitle"><h1>${esc(title)}</h1><span>${esc(sub)}${sub ? ' · ' : ''}${plural(catFlat.length)}</span>` +
       `<span class="back">‹ Categories</span></div><div id="gview"><div id="gtrack">${html}</div></div>`;
     noImgOnError($('#grid'));
     if (!keep) { gl = 0; gc = 0; gScroll = 0; }
@@ -218,14 +229,32 @@
     else if (k === 'right') { if (gc < len - 1) gc++; else if (gl < lines.length - 1) { gl++; gc = 0; } }
     else if (k === 'up') { if (gl > 0) gl--; }
     else if (k === 'down') { if (gl < lines.length - 1) gl++; }
-    else if (k === 'back') { renderHome(); return true; }
+    else if (k === 'back') { if (removing) setRemoving(false); else renderHome(); return true; }
     else if (k === 'ok') {
       const c = lines[gl].items[gc];
-      if (c.app) N.openApp(JSON.stringify(c.app)); else watch(c, catFlat);
+      if (c.act === 'add') { setRemoving(false); N.add(); }
+      else if (c.act === 'rm') { setRemoving(!removing); if (removing) app.toast('Pick the channel to remove. BACK cancels.'); }
+      else if (removing) removeChannel(c);
+      else if (c.app) N.openApp(JSON.stringify(c.app)); else watch(c, catFlat);
       return true;
     }
     paintGrid();
     return true;
+  }
+
+  function setRemoving(on) {
+    removing = on;
+    $('#grid').classList.toggle('removing', on);
+  }
+
+  function removeChannel(c) {
+    mine.splice(mine.indexOf(c), 1);
+    channels.splice(channels.indexOf(c), 1);
+    store.set('mine', mine);
+    setRemoving(false);
+    number();
+    app.toast(`Removed ${c.name}`);
+    openCat(cat, true);
   }
 
   // -- watching ------------------------------------------------------------------------------------------
@@ -296,7 +325,7 @@
   function openList() {
     listI = Math.max(0, zapList.indexOf(watching));
     listOpen = true;
-    const title = screen === 'grid' ? (cat.lang ? LANGS[cat.lang].name : cat.topic.id) : 'Recently watched';
+    const title = screen === 'grid' ? catTitle(cat) : 'Recently watched';
     $('#list').innerHTML = `<h4>${esc(title)}</h4><div id="items">` +
       zapList.map(c => `<div class="item"><span class="n">${c.num}</span><span class="lg">${logo(c)}</span><span class="t">${esc(c.name)}</span></div>`).join('') +
       '</div>';
@@ -347,6 +376,17 @@
       off[id] = Date.now();
       store.set('off', off);
     }
+  };
+
+  // MainActivity found a player's stream on a site: src is that link, then the site to get a fresh one from.
+  app.added = (name, src) => {
+    const ch = { id: 'my' + Date.now(), name, lang: 'my', cat: 'Added', src };
+    mine.push(ch);
+    channels.push(ch);
+    store.set('mine', mine);
+    number();
+    openCat(cat, true);
+    watch(ch, catFlat);
   };
 
   app.toast = msg => {
@@ -486,6 +526,7 @@
       },
       stop() { id = ''; stop(); if (vid) vid.removeAttribute('src'); },
       openApp(j) { app.toast('Opens ' + JSON.parse(j).search + ' on the TV'); },
+      add() { app.toast('Adding a channel from a site works on the TV'); },
       exit() {},
     };
   }
