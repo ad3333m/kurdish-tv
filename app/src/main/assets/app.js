@@ -435,7 +435,8 @@
     app.key('ok');
   });
 
-  // -- in a desktop browser (no Activity): arrow keys, and a pretend player ---------------------------------
+  // -- in a desktop browser (no Activity): arrow keys, and hls.js in a <video> behind the page -------------
+  // Most channels allow it (CORS). A `page` source or a Referer needs the TV app, so KurdMax only plays there.
 
   function desk() {
     document.documentElement.classList.add('desk');
@@ -444,9 +445,46 @@
         Escape: 'back', Backspace: 'back', PageUp: 'chnext', PageDown: 'chprev', m: 'menu' }[e.key];
       if (k) { e.preventDefault(); app.key(k); }
     });
+    let hls = null, vid = null, srcs = [], id = '';
+    const lib = () => window.Hls ? Promise.resolve() : new Promise((ok, no) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+      s.onload = ok;
+      s.onerror = no;
+      document.head.appendChild(s);
+    });
+    const video = () => {
+      if (vid) return vid;
+      vid = document.createElement('video');
+      vid.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;background:#000;object-fit:contain;z-index:-1';
+      vid.autoplay = true;
+      vid.addEventListener('playing', () => app.onState(id, 'playing'));
+      vid.addEventListener('waiting', () => app.onState(id, 'buffering'));
+      document.body.appendChild(vid);
+      return vid;
+    };
+    const stop = () => { if (hls) { hls.destroy(); hls = null; } };
+    const next = want => {
+      if (want !== id) return;
+      stop();
+      const s = srcs.shift();
+      if (!s) { app.onState(id, 'failed'); return; }
+      if (!s.u || s.r) { next(want); return; }
+      hls = new window.Hls();
+      hls.on(window.Hls.Events.ERROR, (e, d) => { if (d.fatal) next(want); });
+      hls.loadSource(s.u);
+      hls.attachMedia(video());
+      video().play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
+    };
     return {
-      play(j) { const id = JSON.parse(j).id; setTimeout(() => app.onState(id, 'loading'), 0); setTimeout(() => app.onState(id, 'playing'), 900); },
-      stop() {},
+      play(j) {
+        const ch = JSON.parse(j);
+        id = ch.id;
+        srcs = ch.src.slice();
+        app.onState(id, 'loading');
+        lib().then(() => next(ch.id), () => app.onState(ch.id, 'failed'));
+      },
+      stop() { id = ''; stop(); if (vid) vid.removeAttribute('src'); },
       openApp(j) { app.toast('Opens ' + JSON.parse(j).search + ' on the TV'); },
       exit() {},
     };
