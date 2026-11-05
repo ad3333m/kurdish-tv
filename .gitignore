@@ -1,0 +1,9 @@
+.gradle/
+build/
+out/
+tv-shots/
+local.properties
+*.apk
+*.keystore
+.idea/
+__pycache__/
